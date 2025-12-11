@@ -357,8 +357,32 @@ def show_inventory(message):
     user_id = message.from_user.id
     data = get_user_data(user_id)
 
-    msg = "🃏 Ваш инвентарь:\n\n"
+    # === СЧИТАЕМ УНИКАЛЬНЫЕ КАРТЫ ===
+    unique_cards_set = set()
 
+    # обычные
+    for c in data['cards']:
+        unique_cards_set.add(c['name'])
+
+    # кастомные
+    for c in data['custom_cards']:
+        unique_cards_set.add(c['name'])
+
+    # новогодние
+    for c in data['new_year_cards']:
+        unique_cards_set.add(c['name'])
+
+    unique_collected = len(unique_cards_set)
+
+    # === СЧИТАЕМ ВСЕ ВОЗМОЖНЫЕ КАРТЫ (ЗАМЕНИ ИМЕНА МАССИВОВ НА СВОИ!) ===
+    TOTAL_CARDS = len(all_cards) + len(custom_cards_all) + len(new_year_cards_all)
+
+    # === ФОРМИРУЕМ СООБЩЕНИЕ ===
+
+    msg = "🃏 Ваш инвентарь:\n"
+    msg += f"📦 Собрано уникальных карт: {unique_collected} / {TOTAL_CARDS}\n\n"
+
+    # Обычные карты
     if data['cards']:
         msg += "🔹 Обычные карточки:\n"
         for c in data['cards']:
@@ -366,6 +390,7 @@ def show_inventory(message):
     else:
         msg += "Обычных карточек нет.\n"
 
+    # Кастомные карты
     if data['custom_cards']:
         msg += "\n🎨 Кастомные карточки:\n"
         for c in data['custom_cards']:
@@ -373,6 +398,7 @@ def show_inventory(message):
     else:
         msg += "\nКастомных карточек нет.\n"
 
+    # Новогодние карты
     if data['new_year_cards']:
         msg += "\n🎄 Новогодние карточки:\n"
         for c in data['new_year_cards']:
@@ -383,6 +409,7 @@ def show_inventory(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("Назад")
     bot.send_message(message.chat.id, msg, reply_markup=markup)
+
 
 # ------------------------------
 # Лидеры
