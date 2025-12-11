@@ -354,8 +354,7 @@ def handle_new_year_name(message):
 # Инвентарь
 # -----------------------
 def show_inventory(message):
- user_id =
- message.from_user.id 
+ user_id = message.from_user.id 
 data = get_user_data(user_id)
 msg = "🃏 Ваш инвентарь:\n\n"
 if data['cards']:
