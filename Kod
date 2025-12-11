@@ -623,5 +623,5 @@ def handle_text(message):
 # Запуск бота
 # ------------------------------
 if __name__ == "__main__":
-        print("Bot is starting...")
+    print("Bot is starting...")
     bot.polling(none_stop=True)
