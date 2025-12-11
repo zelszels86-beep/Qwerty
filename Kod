@@ -361,7 +361,7 @@ msg = "🃏 Ваш инвентарь:\n\n"
 if data['cards']:
 msg += "🔹 Обычные карточки:\n" 
 for c in data['cards']:
-msg += f"{c['emoji']}
+msg += f"{c['emoji']}"
 {c['name']} ({c['rarity']}, ⭐
 {c['stars']}, очки {c['points']})\n"
 else: 
