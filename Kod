@@ -352,37 +352,361 @@ def handle_new_year_name(message):
 
 # ------------------------------
 # Инвентарь
+# -----------------------
+def show_inventory(message): user_id = message.from_user.id data = get_user_data(user_id) msg = "🃏 Ваш инвентарь:\n\n" if data['cards']: msg += "🔹 Обычные карточки:\n" for c in data['cards']: msg += f"{c['emoji']} {c['name']} ({c['rarity']}, ⭐ {c['stars']}, очки {c['points']})\n" else: msg += "Обычных карточек нет.\n" if data['custom_cards']: msg += "\n🎨 Кастомные карточки:\n" for c in
+data['custom_cards']: msg += f"{c['name']} ({c['rarity']}, ⭐ {c['stars']}, рейт {c['rate']}, очки {c['points']})\n" else: msg += "\nКастомных карточек нет.\n" if data['new_year_cards']: msg += "\n🎄 Новогодние карточки:\n" for c in data['new_year_cards']: msg += f"{c['name']} ({c['theme']}, {c['rarity']}, ⭐ {c['stars']}, очки {c['points']})\n" else: msg += "\nНовогодних карточек нет.\n" markup = types.ReplyKeyboardMarkup(resize_keyboard=True) markup.add("Назад")
+bot.send_message(message.chat.id, msg, reply_markup=markup)
+# ------------------------------
+# Файл для сохранения прогресса
+# ------------------------------
+DATA_FILE = "data.json"
+
+def save_data():
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, ensure_ascii=False, indent=4)
+
+def load_data():
+    global users, custom_cards_all, new_year_cards_all
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            users = json.load(f)
+    else:
+        users = {}
+
+    custom_cards_all = []
+    new_year_cards_all = []
+    for user_data in users.values():
+        for card in user_data.get('custom_cards', []):
+            custom_cards_all.append(card)
+        for card in user_data.get('new_year_cards', []):
+            new_year_cards_all.append(card)
+
+# ------------------------------
+# Данные пользователей
+# ------------------------------
+users = {}
+custom_cards_all = []
+new_year_cards_all = []
+
+load_data()
+
+# ------------------------------
+# Настройки обычных карточек
+# ------------------------------
+rarities_normal = {
+    "обычный": {"stars": 2, "points": 100, "emoji": "⭐", "chance": 40},
+    "редкий": {"stars": 3, "points": 250, "emoji": "🌟", "chance": 25},
+    "сверхредкий": {"stars": 4, "points": 400, "emoji": "🔥", "chance": 15},
+    "эпический": {"stars": 5, "points": 500, "emoji": "💎", "chance": 10},
+    "мифический": {"stars": 6, "points": 750, "emoji": "💫", "chance": 6},
+    "легендарный": {"stars": 7, "points": 900, "emoji": "👑", "chance": 3},
+    "секретный": {"stars": 8, "points": 1250, "emoji": "🛡️", "chance": 1}
+}
+
+def get_random_rarity():
+    rarities = list(rarities_normal.keys())
+    weights = [rarities_normal[r]["chance"] for r in rarities]
+    return random.choices(rarities, weights=weights, k=1)[0]
+
+names_normal = {
+    "обычный": ["Moonlit", "21", "Generic Platformer", "skill test 01"],
+    "редкий": ["Moroznie Cvetochki", "more okean i palmi"],
+    "сверхредкий": ["Ice age", "tuchencia", "fireblood"],
+    "эпический": ["Die in a fire", "xiaomi hyper os"],
+    "мифический": ["3000", "poison temple"],
+    "легендарный": ["Kurilka", "kocmoc 2"],
+    "секретный": ["KOKMOK", "cristal wnm1"]
+}
+
+# ------------------------------
+# Настройки кастомных карт
+# ------------------------------
+custom_raters = {
+    "стар рейт": 0,
+    "фичер": 200,
+    "эпик": 500,
+    "мифик": 800,
+    "Лега": 1250
+}
+
+# ------------------------------
+# Настройки новогодних карт
+# ------------------------------
+new_year_themes = {
+    "❄ Снежинка": 1,
+    "🎄 Ёлка": 2,
+    "🎅 Дед Мороз": 3,
+    "🎁 Подарок": 4,
+    "✨ Гирлянда": 5,
+    "🌟 Звёздная комета": 6
+}
+
+new_year_rarities = {
+    "обычная": {"stars":2, "bonus":1, "chance": 40},
+    "редкая": {"stars":3, "bonus":2, "chance": 25},
+    "эпическая": {"stars":4, "bonus":3, "chance": 15},
+    "мифическая": {"stars":5, "bonus":4, "chance": 10},
+    "легендарная": {"stars":6, "bonus":5, "chance": 7},
+    "секретная": {"stars":7, "bonus":6, "chance": 3}
+}
+
+def get_random_new_year_rarity():
+    rarities = list(new_year_rarities.keys())
+    weights = [new_year_rarities[r]["chance"] for r in rarities]
+    return random.choices(rarities, weights=weights, k=1)[0]
+
+# ------------------------------
+# Администраторы и защищённые ники
+# ------------------------------
+ADMIN_USERS = {
+    "5967087017": "👑"
+}
+
+RESERVED_NICKS = ["kitten97"]
+
+def has_emoji(text):
+    emoji_pattern = re.compile(
+        "[\U0001F600-\U0001F64F"
+        "\U0001F300-\U0001F5FF"
+        "\U0001F680-\U0001F6FF"
+        "\U0001F1E0-\U0001F1FF"
+        "]+", flags=re.UNICODE
+    )
+    return bool(emoji_pattern.search(text))
+
+def get_display_nick(user_id, nick):
+    if str(user_id) in ADMIN_USERS:
+        return f"{nick} {ADMIN_USERS[str(user_id)]}"
+    return nick
+
+def is_nick_reserved(nick):
+    return nick.lower() in RESERVED_NICKS
+
+# ------------------------------
+# Получение данных пользователя
+# ------------------------------
+def get_user_data(user_id):
+    if str(user_id) not in users:
+        users[str(user_id)] = {
+            'nick':'', 'awaiting_nick': True,
+            'last_card_time':0, 'cards':[],
+            'custom_cards':[], 'last_custom_time':0, 'custom_points':0,
+            'new_year_cards':[], 'last_new_year':0, 'total_snowflakes':0,
+            'awaiting_custom':False, 'awaiting_new_year':False
+        }
+        save_data()
+    return users[str(user_id)]
+
+# ------------------------------
+# Главное меню
+# ------------------------------
+def main_menu(chat_id, user_name, user_id=None):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("Открыть", "Инвентарь", "Лидеры")
+    markup.add("Создать кастомную карту", "Создать новогоднюю карточку")
+    markup.add("Лидеры Креаторов", "Лучшие кастомные карточки")
+    markup.add("Лидеры ивента", "Лучшие новогодние карточки")
+    markup.add("Управление")  # Добавили кнопку управления
+
+    display_name = get_display_nick(user_id, user_name)
+    bot.send_message(chat_id, f"✨ Привет {display_name}! Спасибо, что пользуешься ботом ;)", reply_markup=markup)
+
+# ------------------------------
+# Панель управления
+# ------------------------------
+admin_state = {}  # user_id → состояние
+ADMIN_PASSWORD = "zelszels86"
+
+def admin_menu(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("Обнулить игрока", "Изменить имя")
+    markup.add("Добавить админа")
+    markup.add("Назад")
+    bot.send_message(message.chat.id, "🔧 Панель управления:", reply_markup=markup)
+
+# ------------------------------
+# Функции админ-панели
+# ------------------------------
+def reset_player(nick):
+    for uid, data in users.items():
+        if data.get("nick", "").lower() == nick.lower():
+            users[uid] = {
+                'nick': '',
+                'awaiting_nick': True,
+                'last_card_time': 0,
+                'cards': [],
+                'custom_cards': [],
+                'last_custom_time': 0,
+                'custom_points': 0,
+                'new_year_cards': [],
+                'last_new_year': 0,
+                'total_snowflakes': 0,
+                'awaiting_custom': False,
+                'awaiting_new_year': False
+            }
+            save_data()
+            return True
+    return False
+
+def change_nick(old_nick, new_nick):
+    for uid, data in users.items():
+        if data.get("nick", "").lower() == old_nick.lower():
+            data["nick"] = new_nick
+            save_data()
+            return True
+    return False
+
+def add_admin(user_id):
+    ADMIN_USERS[str(user_id)] = "👑"
+    save_data()
+
+# ------------------------------
+# Открытие обычной карты
+# ------------------------------
+def open_card(message):
+    user_id = message.from_user.id
+    data = get_user_data(user_id)
+    now = time.time()
+
+    if now - data['last_card_time'] < 3600:
+        remaining = int((3600 - (now - data['last_card_time'])) // 60)
+        bot.send_message(message.chat.id, f"⏳ Подожди {remaining} минут до новой карты.")
+        return
+
+    rarity = get_random_rarity()
+    name = random.choice(names_normal[rarity])
+    stars = rarities_normal[rarity]['stars']
+    points = rarities_normal[rarity]['points']
+    emoji = rarities_normal[rarity]['emoji']
+
+    found = any(c['name'] == name for c in data['cards'])
+    if found:
+        points += int(points * 0.1)
+        msg_extra = "🔄 Повторка! Получены бонусные очки."
+    else:
+        msg_extra = "🆕 Новая карта!"
+
+    card = {"name":name, "rarity":rarity, "stars":stars, "points":points, "emoji":emoji}
+    data['cards'].append(card)
+    data['last_card_time'] = now
+    save_data()
+
+    bot.send_message(message.chat.id,
+        f"{emoji} {rarity.title()} карта!\n"
+        f"Имя: {name}\n"
+        f"Звёзды: {stars}\n"
+        f"Очки: {points}\n"
+        f"{msg_extra}"
+    )
+
+# ------------------------------
+# Создание кастомной карты
+# ------------------------------
+def create_custom_card(message):
+    user_id = message.from_user.id
+    data = get_user_data(user_id)
+    now = time.time()
+
+    if now - data['last_custom_time'] < 86400:
+        remaining = int((86400 - (now - data['last_custom_time'])) // 3600)
+        bot.send_message(message.chat.id, f"⏳ Кастомная карта уже создана сегодня. Подожди {remaining} часов.")
+        return
+
+    data['awaiting_custom'] = True
+    bot.send_message(message.chat.id, "Введите имя вашей кастомной карты:")
+
+def handle_custom_name(message):
+    user_id = message.from_user.id
+    data = get_user_data(user_id)
+
+    name = message.text.strip()
+    rarity = get_random_rarity()
+    stars = rarities_normal[rarity]['stars']
+    base_points = rarities_normal[rarity]['points']
+    rate_name, rate_points = random.choice(list(custom_raters.items()))
+    total_points = base_points + rate_points
+
+    card = {
+        "name":name, "rarity":rarity, "stars":stars,
+        "points":total_points, "rate":rate_name, "owner":data['nick']
+    }
+
+    data['custom_cards'].append(card)
+    data['custom_points'] += total_points
+    custom_cards_all.append(card)
+    data['last_custom_time'] = time.time()
+    data['awaiting_custom'] = False
+    save_data()
+
+    bot.send_message(message.chat.id,
+        f"🎨 Кастомная карта создана!\n"
+        f"Имя: {name}\n"
+        f"Редкость: {rarity}\n"
+        f"Звёзды: {stars}\n"
+        f"Рейт: {rate_name}\n"
+        f"Очки: {total_points}"
+    )
+
+# ------------------------------
+# Создание новогодней карты
+# ------------------------------
+def create_new_year_card(message):
+    user_id = message.from_user.id
+    data = get_user_data(user_id)
+    now = time.time()
+
+    if now - data['last_new_year'] < 86400:
+        remaining = int((86400 - (now - data['last_new_year'])) // 3600)
+        bot.send_message(message.chat.id, f"⏳ Новогодняя карта уже создана сегодня. Подожди {remaining} часов.")
+        return
+
+    data['awaiting_new_year'] = True
+    bot.send_message(message.chat.id, "Введите имя вашей новогодней карточки:")
+
+def handle_new_year_name(message):
+    user_id = message.from_user.id
+    data = get_user_data(user_id)
+
+    name = message.text.strip()
+    theme = random.choice(list(new_year_themes.keys()))
+    theme_points = new_year_themes[theme]
+
+    rarity_name = get_random_new_year_rarity()
+    rarity_stars = new_year_rarities[rarity_name]['stars']
+    rarity_points = new_year_rarities[rarity_name]['bonus']
+
+    total_points = theme_points + rarity_points
+
+    card = {
+        "name":name, "theme":theme, "rarity":rarity_name,
+        "stars":rarity_stars, "points":total_points, "owner":data['nick']
+    }
+
+    data['new_year_cards'].append(card)
+    data['total_snowflakes'] += total_points
+    data['last_new_year'] = time.time()
+    new_year_cards_all.append(card)
+    data['awaiting_new_year'] = False
+    save_data()
+
+    bot.send_message(message.chat.id,
+        f"🎄 Новогодняя карточка создана!\n"
+        f"Имя: {name}\n"
+        f"Тема: {theme}\n"
+        f"Редкость: {rarity_name}\n"
+        f"Звёзды: {rarity_stars}\n"
+        f"Очки новогодней карты: {total_points}"
+    )
+
+# ------------------------------
+# Инвентарь
 # ------------------------------
 def show_inventory(message):
     user_id = message.from_user.id
     data = get_user_data(user_id)
 
-    # === СЧИТАЕМ УНИКАЛЬНЫЕ КАРТЫ ===
-    unique_cards_set = set()
+    msg = "🃏 Ваш инвентарь:\n\n"
 
-    # обычные
-    for c in data['cards']:
-        unique_cards_set.add(c['name'])
-
-    # кастомные
-    for c in data['custom_cards']:
-        unique_cards_set.add(c['name'])
-
-    # новогодние
-    for c in data['new_year_cards']:
-        unique_cards_set.add(c['name'])
-
-    unique_collected = len(unique_cards_set)
-
-    # === СЧИТАЕМ ВСЕ ВОЗМОЖНЫЕ КАРТЫ (ЗАМЕНИ ИМЕНА МАССИВОВ НА СВОИ!) ===
-    TOTAL_CARDS = len(all_cards) + len(custom_cards_all) + len(new_year_cards_all)
-
-    # === ФОРМИРУЕМ СООБЩЕНИЕ ===
-
-    msg = "🃏 Ваш инвентарь:\n"
-    msg += f"📦 Собрано уникальных карт: {unique_collected} / {TOTAL_CARDS}\n\n"
-
-    # Обычные карты
     if data['cards']:
         msg += "🔹 Обычные карточки:\n"
         for c in data['cards']:
@@ -390,7 +714,6 @@ def show_inventory(message):
     else:
         msg += "Обычных карточек нет.\n"
 
-    # Кастомные карты
     if data['custom_cards']:
         msg += "\n🎨 Кастомные карточки:\n"
         for c in data['custom_cards']:
@@ -398,7 +721,6 @@ def show_inventory(message):
     else:
         msg += "\nКастомных карточек нет.\n"
 
-    # Новогодние карты
     if data['new_year_cards']:
         msg += "\n🎄 Новогодние карточки:\n"
         for c in data['new_year_cards']:
@@ -409,6 +731,131 @@ def show_inventory(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("Назад")
     bot.send_message(message.chat.id, msg, reply_markup=markup)
+
+# ------------------------------
+# Лидеры
+# ------------------------------
+def show_leaders(message):
+    top = sorted(
+        users.items(),
+        key=lambda x: sum(c['points'] for c in x[1].get('cards', [])),
+        reverse=True
+    )[:10]
+
+    msg = "🏆 Лидеры по очкам:\n"
+    for i, (uid, u) in enumerate(top, start=1):
+        nick = get_display_nick(uid, u.get('nick', 'Без ника'))
+        score = sum(c['points'] for c in u.get('cards', []))
+        msg += f"#{i} {nick} — {score} очков\n"
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("Назад")
+    bot.send_message(message.chat.id, msg, reply_markup=markup)
+
+def show_creators(message):
+    top = sorted(
+        users.items(),
+        key=lambda x: x[1].get('custom_points', 0),
+        reverse=True
+    )[:10]
+
+    msg = "🏆 Лидеры Креаторов:\n"
+    for i, (uid, u) in enumerate(top, start=1):
+        nick = get_display_nick(uid, u.get('nick', 'Без ника'))
+        msg += f"#{i} {nick} — {u.get('custom_points', 0)} Креатор Поинтов\n"
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("Назад")
+    bot.send_message(message.chat.id, msg, reply_markup=markup)
+
+def show_best_custom_cards(message):
+    top = sorted(custom_cards_all, key=lambda c: c['points'], reverse=True)[:10]
+
+    msg = "🏆 Лучшие кастомные карты:\n"
+    for i, c in enumerate(top, start=1):
+        msg += f"#{i} {c['name']} ({c['rarity']}, ⭐ {c['stars']}, рейт {c['rate']}, очки {c['points']})\n"
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("Назад")
+    bot.send_message(message.chat.id, msg, reply_markup=markup)
+
+def show_new_year_leaders(message):
+    top = sorted(
+        users.items(),
+        key=lambda x: x[1].get('total_snowflakes', 0),
+        reverse=True
+    )[:10]
+
+    msg = "🏆 Лидеры ивента:\n"
+    for i, (uid, u) in enumerate(top, start=1):
+        nick = get_display_nick(uid, u.get('nick', 'Без ника'))
+        msg += f"#{i} {nick} — {u.get('total_snowflakes', 0)} снежинок\n"
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("Назад")
+    bot.send_message(message.chat.id, msg, reply_markup=markup)
+
+def show_best_new_year_cards(message):
+    top = sorted(new_year_cards_all, key=lambda c: c['points'], reverse=True)[:10]
+
+    msg = "🏆 Лучшие новогодние карточки:\n"
+    for i, c in enumerate(top, start=1):
+        msg += (
+            f"#{i} имя:{c['name']} тема:{c['theme']} "
+            f"редкость:{c['rarity']} ⭐{c['stars']} очки:{c['points']}\n"
+        )
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("Назад")
+    bot.send_message(message.chat.id, msg, reply_markup=markup)
+
+def go_back(message):
+    uid = message.from_user.id
+    data = get_user_data(uid)
+    main_menu(message.chat.id, data['nick'], uid)
+
+# ------------------------------
+# /start
+# ------------------------------
+@bot.message_handler(commands=["start"])
+def start_command(message):
+    uid = message.from_user.id
+    data = get_user_data(uid)
+
+    if data['nick'] == '':
+        data['awaiting_nick'] = True
+        save_data()
+        bot.send_message(message.chat.id, "Привет! Напиши свой ник:")
+    else:
+        main_menu(message.chat.id, data['nick'], uid)
+
+# ------------------------------
+# Основной обработчик текста
+# ------------------------------
+@bot.message_handler(func=lambda m: True)
+def handle_text(message):
+    uid = message.from_user.id
+    data = get_user_data(uid)
+    text = message.text.lower()
+
+    # === Проверка админского состояния ===
+    state = admin_state.get(uid, "")
+
+    # Ввод пароля
+    if state == "await_password":
+        if message.text == ADMIN_PASSWORD:
+            admin_state[uid] = "access_granted"
+            admin_menu(message)
+        else:
+            bot.send_message(message.chat.id, "❌ Неверный пароль!")
+            admin_state[uid] = None
+        return
+
+    # Обнуление
+    if state == "reset_player":
+        nick = message.text.strip()
+        admin_state[uid] = None
+        if reset_player(nick):
 
 
 # ------------------------------
